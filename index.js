@@ -65,6 +65,63 @@ app.post('/api/equipements', async (req, res) => {
     }
 });
 
+
+// 3. --- ROUTES POUR LES RESPONSABLES ---
+app.get('/api/responsables', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT id_responsable, nom_responsable, email, role FROM Responsable');
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 4. --- ROUTES POUR LES TACHES ---
+app.get('/api/taches', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT t.*, e.nom_equipement 
+            FROM Tache t
+            JOIN Equipement e ON t.id_equipement = e.id_equipement
+            ORDER BY t.date_echeance
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 5. --- ROUTES POUR AJOUTER UNE TACHE (POST) ---
+app.post('/api/taches', async (req, res) => {
+    try {
+        const { titre_tache, type_tache, description_tache, date_echeance, frequence, statut, id_equipement } = req.body;
+        const result = await pool.query(
+            `INSERT INTO Tache (titre_tache, type_tache, description_tache, date_echeance, frequence, statut, id_equipement) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+            [titre_tache, type_tache, description_tache, date_echeance, frequence, statut, id_equipement]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 6. --- ROUTES POUR LES INTERVENTIONS ---
+app.get('/api/interventions', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT i.*, r.nom_responsable, t.titre_tache 
+            FROM Intervention i
+            JOIN Responsable r ON i.id_responsable = r.id_responsable
+            JOIN Tache t ON i.id_tache = t.id_tache
+            ORDER BY i.date_realisation DESC
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/', (req, res) => {
     res.send("Le serveur fonctionne !");
 });
