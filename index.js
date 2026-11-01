@@ -1,6 +1,7 @@
 const express = require('express');
 const { Pool } = require('pg');
 const cors = require('cors');
+const cron = require('node-cron');
 require('dotenv').config(); 
 
 const app = express();
@@ -124,6 +125,68 @@ app.get('/api/interventions', async (req, res) => {
 
 app.get('/', (req, res) => {
     res.send("Le serveur fonctionne !");
+});
+
+// ==========================================
+// TÂCHES AUTOMATIQUES (CRON JOB)
+// ==========================================
+// Cette fonction s'exécute toutes les minutes (le '* * * * *')
+cron.schedule('* * * * *', async () => {
+    console.log("⏳ Vérification des tâches à recréer...");
+    
+    try {
+        const result = await pool.query(`
+            SELECT * FROM Tache 
+            WHERE statut = 'Terminée' 
+            AND frequence IS NOT NULL
+        `);
+
+        const tachesTerminees = result.rows;
+
+        for (let tache of tachesTerminees) {
+            let nouvelleDate = new Date(tache.date_echeance);
+            let frequenceMinuscule = tache.frequence.toLowerCase(); // On met tout en minuscule pour éviter les erreurs
+
+            // On utilise une expression régulière pour trouver le nombre et le mot
+            let nombre = 1; // Par défaut, si on écrit juste "Semaine", on prend 1
+            let nombreMatch = frequenceMinuscule.match(/\d+/);
+            if (nombreMatch) {
+                nombre = parseInt(nombreMatch[0]);
+            }
+
+            // On cherche l'unité de temps
+            if (frequenceMinuscule.includes('jour')) {
+                nouvelleDate.setDate(nouvelleDate.getDate() + nombre);
+            } else if (frequenceMinuscule.includes('semaine')) {
+                nouvelleDate.setDate(nouvelleDate.getDate() + (nombre * 7));
+            } else if (frequenceMinuscule.includes('mois')) {
+                nouvelleDate.setMonth(nouvelleDate.getMonth() + nombre);
+            } else if (frequenceMinuscule.includes('an') || frequenceMinuscule.includes('année')) {
+                nouvelleDate.setFullYear(nouvelleDate.getFullYear() + nombre);
+            } else {
+                // Si on ne comprend pas, on met par défaut +7 jours
+                nouvelleDate.setDate(nouvelleDate.getDate() + 7); 
+            }
+
+            // 1. On crée la nouvelle tâche
+            await pool.query(`
+                INSERT INTO Tache (titre_tache, type_tache, description_tache, date_echeance, frequence, statut, id_equipement)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+            `, [
+                tache.titre_tache, tache.type_tache, tache.description_tache, 
+                nouvelleDate, tache.frequence, 'En attente', tache.id_equipement
+            ]);
+
+            // 2. On archive l'ancienne
+            await pool.query(`
+                UPDATE Tache SET statut = 'Archivée' WHERE id_tache = $1
+            `, [tache.id_tache]);
+
+            console.log(`✅ Nouvelle tâche créée pour : ${tache.titre_tache} (dans ${tache.frequence})`);
+        }
+    } catch (err) {
+        console.error("Erreur lors de l'exécution du Cron Job :", err);
+    }
 });
 
 const PORT = process.env.PORT || 5000;
