@@ -1,0 +1,5 @@
+express - Le serveur que nous allons utiliser
+pg
+cors - Middleware
+dotenv - pertmet d'acceder a env
+nodemailer

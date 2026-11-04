@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>La Main -- Système de gestion préventive</title>
+    <link rel="icon" type="image/png" href="favicon1.png">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js CDN pour les graphiques -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            dark: '#1e3a8a',
+                            primary: '#2563eb',
+                            light: '#3b82f6',
+                            accent: '#10b981',
+                            accentDark: '#059669',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .active-tab {
+            border-bottom: 3px solid #2563eb;
+            color: #2563eb;
+            font-weight: 600;
+        }
+        .modal-backdrop {
+            background-color: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col font-sans text-slate-800 antialiased">
+
+    <!-- HEADER / NAVIGATION PRINCIPALE -->
+    <header class="bg-slate-900 text-white shadow-lg sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                
+                <!-- BRAND / LOGO -->
+                <div class="flex items-center space-x-3">
+                    <div class="relative w-10 h-10 bg-gradient-to-tr from-brand-primary to-brand-accent rounded-xl flex items-center justify-center shadow-md">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                        </svg>
+                        <i class="fa-solid fa-gear absolute -bottom-1 -right-1 text-xs text-brand-accent bg-slate-900 rounded-full p-0.5"></i>
+                    </div>
+                    <div>
+                        <span class="text-xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-emerald-400 bg-clip-text text-transparent">LA MAIN</span>
+                        <span class="hidden md:inline-block text-xs text-slate-400 ml-2 font-light border-l border-slate-700 pl-2">Gestion Préventive</span>
+                    </div>
+                </div>
+
+                <!-- API STATUS INDICATOR -->
+                <div class="flex items-center space-x-4">
+                    <div id="api-status-badge" class="hidden items-center space-x-2 px-3 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                        <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse" id="api-status-dot"></span>
+                        <span id="api-status-text">Vérification de l'API...</span>
+                    </div> 
+
+                    <!-- USER INFO -->
+                    <div class="hidden sm:flex items-center space-x-3 border-l border-slate-800 pl-4">
+                        <div class="w-8 h-8 rounded-full bg-brand-primary flex items-center justify-center text-xs font-bold text-white">
+                            WA
+                        </div>
+                        <div class="text-xs">
+                            <p class="font-medium text-slate-200">Wesley Alexis</p>
+                            <p class="text-slate-400">Administrateur (ISTEAH)</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- NAVIGATION TABS -->
+        <nav class="bg-white border-b border-slate-200 text-slate-600 shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex space-x-2 md:space-x-8 overflow-x-auto no-scrollbar">
+                    <button onclick="switchTab('tab-dashboard')" id="btn-tab-dashboard" class="tab-btn py-3 px-3 text-sm font-medium flex items-center space-x-2 border-b-2 border-transparent hover:text-brand-primary transition-colors active-tab">
+                        <i class="fa-solid fa-chart-pie text-base"></i>
+                        <span>Tableau de Bord</span>
+                    </button>
+                    <button onclick="switchTab('tab-equipements')" id="btn-tab-equipements" class="tab-btn py-3 px-3 text-sm font-medium flex items-center space-x-2 border-b-2 border-transparent hover:text-brand-primary transition-colors">
+                        <i class="fa-solid fa-boxes-stacked text-base"></i>
+                        <span>Équipements</span>
+                    </button>
+                    <button onclick="switchTab('tab-responsables')" id="btn-tab-responsables" class="tab-btn py-3 px-3 text-sm font-medium flex items-center space-x-2 border-b-2 border-transparent hover:text-brand-primary transition-colors">
+                        <i class="fa-solid fa-users text-base"></i>
+                        <span>Responsables</span>
+                    </button>
+                    <button onclick="switchTab('tab-taches')" id="btn-tab-taches" class="tab-btn py-3 px-3 text-sm font-medium flex items-center space-x-2 border-b-2 border-transparent hover:text-brand-primary transition-colors">
+                        <i class="fa-solid fa-list-check text-base"></i>
+                        <span>Tâches Planifiées</span>
+                    </button>
+                    <button onclick="switchTab('tab-interventions')" id="btn-tab-interventions" class="tab-btn py-3 px-3 text-sm font-medium flex items-center space-x-2 border-b-2 border-transparent hover:text-brand-primary transition-colors">
+                        <i class="fa-solid fa-clock-rotate-left text-base"></i>
+                        <span>Interventions</span>
+                    </button>
+                    <button onclick="switchTab('tab-notifications')" id="btn-tab-notifications" class="tab-btn py-3 px-3 text-sm font-medium flex items-center space-x-2 border-b-2 border-transparent hover:text-brand-primary transition-colors relative">
+                        <i class="fa-solid fa-bell text-base"></i>
+                        <span>Notifications</span>
+                        <span id="notif-badge-count" class="ml-1 px-1.5 py-0.5 text-xs bg-emerald-500 text-white rounded-full font-bold" style="display:none;">0</span>
+                    </button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- ================= ONGLET 1 : TABLEAU DE BORD ================= -->
+        <section id="tab-dashboard" class="tab-content space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-900">Vue d'ensemble préventive</h1>
+                    <p class="text-slate-500 text-sm mt-1">Surveillance des équipements et suivi des opérations périodiques pour <strong>ISTEAH</strong>.</p>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <button onclick="refreshData()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-xl transition-colors flex items-center space-x-2">
+                        <i class="fa-solid fa-rotate text-xs"></i>
+                        <span>Actualiser</span>
+                    </button>
+                    <button onclick="openModal('modal-tache')" class="px-4 py-2 bg-brand-primary hover:bg-brand-dark text-white text-sm font-medium rounded-xl shadow-sm transition-all flex items-center space-x-2">
+                        <i class="fa-solid fa-plus text-xs"></i>
+                        <span>Nouvelle Tâche</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- STATISTICAL CARDS -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Équipements</p>
+                        <h3 class="text-2xl font-extrabold text-slate-900 mt-2" id="stat-equipements-count">0</h3>
+                        <p class="text-xs text-emerald-600 font-medium mt-1"><i class="fa-solid fa-check-circle mr-1"></i>En suivi</p>
+                    </div>
+                    <div class="w-10 h-10 bg-blue-50 text-brand-primary rounded-xl flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-boxes-stacked"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">En attente</p>
+                        <h3 class="text-2xl font-extrabold text-blue-600 mt-2" id="stat-taches-attente">0</h3>
+                        <p class="text-xs text-blue-600 font-medium mt-1"><i class="fa-solid fa-calendar mr-1"></i>Échéance future</p>
+                    </div>
+                    <div class="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-clock"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">En cours</p>
+                        <h3 class="text-2xl font-extrabold text-amber-600 mt-2" id="stat-taches-encours">0</h3>
+                        <p class="text-xs text-amber-600 font-medium mt-1"><i class="fa-solid fa-fire mr-1"></i>Action requise</p>
+                    </div>
+                    <div class="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-hourglass-half"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Terminées</p>
+                        <h3 class="text-2xl font-extrabold text-emerald-600 mt-2" id="stat-taches-terminees">0</h3>
+                        <p class="text-xs text-emerald-600 font-medium mt-1"><i class="fa-solid fa-shield-check mr-1"></i>Résolues</p>
+                    </div>
+                    <div class="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Bloquées</p>
+                        <h3 class="text-2xl font-extrabold text-rose-600 mt-2" id="stat-taches-bloquees">0</h3>
+                        <p class="text-xs text-rose-600 font-medium mt-1"><i class="fa-solid fa-ban mr-1"></i>Incidents</p>
+                    </div>
+                    <div class="w-10 h-10 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CHART & TABLES -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- CHART -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 lg:col-span-1 flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900 mb-1">États des Équipements</h3>
+                        <p class="text-xs text-slate-500 mb-4">Répartition en temps réel</p>
+                    </div>
+                    <div class="relative w-full aspect-square max-w-[220px] mx-auto">
+                        <canvas id="equipmentsChart"></canvas>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-slate-100 grid grid-cols-2 gap-2 text-xs">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+                            <span class="text-slate-600">Fonctionnel</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="w-3 h-3 rounded-full bg-amber-500"></span>
+                            <span class="text-slate-600">En maintenance</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TABLE PROCHAINES ÉCHÉANCES -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 lg:col-span-2 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-base font-bold text-slate-900">Tâches Prioritaires & À Venir</h3>
+                            <button onclick="switchTab('tab-taches')" class="text-xs text-brand-primary font-semibold hover:underline">Voir tout →</button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-sm">
+                                <thead>
+                                    <tr class="text-xs text-slate-400 border-b border-slate-100 uppercase">
+                                        <th class="pb-3 font-semibold">Tâche</th>
+                                        <th class="pb-3 font-semibold">Équipement</th>
+                                        <th class="pb-3 font-semibold">Échéance</th>
+                                        <th class="pb-3 font-semibold">Statut</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dashboard-echeances-body" class="divide-y divide-slate-100">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-100 text-xs text-slate-400 flex items-center justify-between">
+                        <span><i class="fa-solid fa-robot text-brand-primary mr-1"></i> Surveillance automatique active</span>
+                        <span>Synchronisé</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= ONGLET 2 : ÉQUIPEMENTS ================= -->
+        <section id="tab-equipements" class="tab-content hidden space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-900">Parc des Équipements</h1>
+                    <p class="text-slate-500 text-sm mt-1">Inventaire et état des matériels d'ISTEAH.</p>
+                </div>
+                <button onclick="openModal('modal-equipement')" class="px-4 py-2 bg-brand-primary hover:bg-brand-dark text-white text-sm font-medium rounded-xl shadow-sm transition-all flex items-center space-x-2">
+                    <i class="fa-solid fa-plus text-xs"></i>
+                    <span>Ajouter un équipement</span>
+                </button>
+            </div>
+
+            <div id="equipements-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            </div>
+        </section>
+
+        <!-- ================= ONGLET 3 : RESPONSABLES ================= -->
+        <section id="tab-responsables" class="tab-content hidden space-y-6">
+            <div class="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-900">Gestion des Responsables et Techniciens</h2>
+                    <p class="text-slate-500 text-sm mt-1">Liste des administrateurs et agents habilités à valider les interventions.</p>
+                </div>
+                <button onclick="openModal('modal-responsable')" class="bg-brand-primary hover:bg-brand-dark text-white px-4 py-2 rounded-xl text-sm font-medium shadow-sm transition flex items-center gap-2">
+                    <i class="fa-solid fa-user-plus text-xs"></i> Ajouter un Responsable
+                </button>
+            </div>
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-slate-50 text-slate-600 uppercase text-xs font-semibold border-b border-slate-100">
+                        <tr>
+                            <th class="p-4">Nom et Prénom</th>
+                            <th class="p-4">Email</th>
+                            <th class="p-4">Téléphone</th>
+                            <th class="p-4">Rôle</th>
+                            <th class="p-4 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-responsables" class="divide-y divide-slate-100 text-sm text-slate-700">
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ================= ONGLET 4 : TÂCHES PLANIFIÉES ================= -->
+        <section id="tab-taches" class="tab-content hidden space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-900">Gestion des Tâches Planifiées</h1>
+                    <p class="text-slate-500 text-sm mt-1">Planification récurrente et suivi des échéances préventives.</p>
+                </div>
+                <button onclick="openModal('modal-tache')" class="px-4 py-2 bg-brand-primary hover:bg-brand-dark text-white text-sm font-medium rounded-xl shadow-sm transition-all flex items-center space-x-2">
+                    <i class="fa-solid fa-plus text-xs"></i>
+                    <span>Créer une Tâche</span>
+                </button>
+            </div>
+
+            <!-- TABS / FILTRES PAR STATUT -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex items-center space-x-2 overflow-x-auto">
+                        <button onclick="filterTaches('tous')" class="btn-filter-tache px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white" data-filter="tous">Toutes (<span id="count-tous">0</span>)</button>
+                        <button onclick="filterTaches('En attente')" class="btn-filter-tache px-3 py-1.5 text-xs font-semibold rounded-lg bg-white text-slate-600 hover:bg-slate-100 border border-slate-200" data-filter="En attente">En attente (<span id="count-attente">0</span>)</button>
+                        <button onclick="filterTaches('En cours')" class="btn-filter-tache px-3 py-1.5 text-xs font-semibold rounded-lg bg-white text-slate-600 hover:bg-slate-100 border border-slate-200" data-filter="En cours">En cours / Due (<span id="count-encours">0</span>)</button>
+                        <button onclick="filterTaches('Terminée')" class="btn-filter-tache px-3 py-1.5 text-xs font-semibold rounded-lg bg-white text-slate-600 hover:bg-slate-100 border border-slate-200" data-filter="Terminée">Terminées (<span id="count-terminees">0</span>)</button>
+                        <button onclick="filterTaches('Bloquée')" class="btn-filter-tache px-3 py-1.5 text-xs font-semibold rounded-lg bg-white text-slate-600 hover:bg-slate-100 border border-slate-200" data-filter="Bloquée">Bloquées (<span id="count-bloquees">0</span>)</button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-50 text-slate-500 text-xs uppercase font-semibold border-b border-slate-100">
+                            <tr>
+                                <th class="p-4">Titre & Description</th>
+                                <th class="p-4">Type</th>
+                                <th class="p-4">Équipement</th>
+                                <th class="p-4">Responsable</th>
+                                <th class="p-4">Échéance</th>
+                                <th class="p-4">Fréquence</th>
+                                <th class="p-4">Statut</th>
+                                <th class="p-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="taches-table-body" class="divide-y divide-slate-100">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= ONGLET 5 : INTERVENTIONS ================= -->
+        <section id="tab-interventions" class="tab-content hidden space-y-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <h1 class="text-2xl font-bold text-slate-900">Historique des Interventions</h1>
+                <p class="text-slate-500 text-sm mt-1">Traçabilité des travaux réalisés, des comptes-rendus et des coûts d'entretien.</p>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-50 text-slate-500 text-xs uppercase font-semibold border-b border-slate-100">
+                            <tr>
+                                <th class="p-4">Date de Réalisation</th>
+                                <th class="p-4">Tâche Concerne</th>
+                                <th class="p-4">Responsable / Agent</th>
+                                <th class="p-4">Coût ($)</th>
+                                <th class="p-4">Rapport d'intervention</th>
+                            </tr>
+                        </thead>
+                        <tbody id="interventions-table-body" class="divide-y divide-slate-100">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= ONGLET 6 : NOTIFICATIONS ================= -->
+        <section id="tab-notifications" class="tab-content hidden space-y-6">
+            <div class="flex items-center justify-between bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-900">Notifications & Alertes</h1>
+                    <p class="text-slate-500 text-sm mt-1">Rappels automatiques transmis aux responsables.</p>
+                </div>
+                <button onclick="clearNotifications()" class="text-xs text-slate-500 hover:text-slate-700 underline">Tout marquer comme lu</button>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                <div id="notifications-list" class="space-y-4">
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ================= MODALES ================= -->
+
+    <!-- MODALE 1 : AJOUT ÉQUIPEMENT -->
+    <div id="modal-equipement" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-100">
+            <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+                <h3 class="text-lg font-bold text-slate-900"><i class="fa-solid fa-box text-brand-primary mr-2"></i>Nouveau Matériel</h3>
+                <button onclick="closeModal('modal-equipement')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <form id="form-add-equipement" onsubmit="handleAddEquipement(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Nom de l'équipement</label>
+                    <input type="text" id="eq-nom" required placeholder="ex: Génératrice Campus" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-primary focus:outline-none">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Catégorie</label>
+                        <select id="eq-categorie" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-primary focus:outline-none">
+                            <option value="Génératrice">Génératrice</option>
+                            <option value="Informatique">Informatique</option>
+                            <option value="Climatisation">Climatisation</option>
+                            <option value="Véhicule">Véhicule</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">État initial</label>
+                        <select id="eq-etat" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-primary focus:outline-none">
+                            <option value="Fonctionnel">Fonctionnel</option>
+                            <option value="En maintenance">En maintenance</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Localisation</label>
+                    <input type="text" id="eq-localisation" required placeholder="ex: Port-au-Prince" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-primary focus:outline-none">
+                </div>
+
+                <div class="pt-3 border-t border-slate-100 flex justify-end space-x-3">
+                    <button type="button" onclick="closeModal('modal-equipement')" class="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl">Annuler</button>
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-brand-primary hover:bg-brand-dark rounded-xl shadow-sm">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODALE 2 : AJOUT RESPONSABLE -->
+    <div id="modal-responsable" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-100 space-y-4">
+            <div class="flex justify-between items-center pb-3 border-b border-slate-100">
+                <h3 class="text-lg font-bold text-slate-800"><i class="fa-solid fa-user-plus text-brand-primary mr-2"></i>Ajouter un Nouveau Responsable</h3>
+                <button onclick="closeModal('modal-responsable')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <form id="form-responsable" onsubmit="saveResponsable(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Nom et Prénom</label>
+                    <input type="text" id="resp-nom" required placeholder="ex: Jean Pierre" class="w-full border border-slate-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-primary">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Email</label>
+                        <input type="email" id="resp-email" required placeholder="jean.pierre@isteah.ht" class="w-full border border-slate-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-primary">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Téléphone</label>
+                        <input type="text" id="resp-numero" placeholder="+509 XXXX-XXXX" class="w-full border border-slate-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-primary">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Mot de passe</label>
+                        <input type="password" id="resp-password" required placeholder="••••••••" class="w-full border border-slate-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-primary">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Rôle</label>
+                        <select id="resp-role" class="w-full border border-slate-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-primary">
+                            <option value="Responsable">Responsable</option>
+                            <option value="Admin">Admin</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-3 pt-2 border-t border-slate-100">
+                    <button type="button" onclick="closeModal('modal-responsable')" class="px-4 py-2 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50">Annuler</button>
+                    <button type="submit" class="px-4 py-2 bg-brand-primary hover:bg-brand-dark text-white rounded-xl text-sm font-medium shadow">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODALE 3 : PLANIFIER UNE TÂCHE -->
+    <div id="modal-tache" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-100">
+            <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+                <h3 class="text-lg font-bold text-slate-900"><i class="fa-solid fa-calendar-plus text-brand-primary mr-2"></i>Nouvelle Tâche Planifiée</h3>
+                <button onclick="closeModal('modal-tache')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <form id="form-add-tache" onsubmit="handleAddTache(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Titre de la tâche</label>
+                    <input type="text" id="tache-titre" required placeholder="ex: Vidange mensuelle" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-primary focus:outline-none">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Équipement associé</label>
+                        <select id="tache-equipement-select" required class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-primary focus:outline-none">
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Type de tâche</label>
+                        <select id="tache-type" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-primary focus:outline-none">
+                            <option value="Maintenance">Maintenance</option>
+                            <option value="Contrôle">Contrôle</option>
+                            <option value="Approvisionnement">Approvisionnement</option>
+                            <option value="Renouvellement">Renouvellement</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Responsable assigné</label>
+                    <select id="tache-responsable" class="w-full border border-slate-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-brand-primary outline-none">
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Date d'échéance</label>
+                        <input type="datetime-local" id="tache-echeance" required class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-primary focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Fréquence récurrente</label>
+                        <select id="tache-frequence" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-primary focus:outline-none">
+                            <option value="Mensuelle">Mensuelle (+1 mois)</option>
+                            <option value="Trimestrielle">Trimestrielle (+3 mois)</option>
+                            <option value="Semestrielle">Semestrielle (+6 mois)</option>
+                            <option value="Annuelle">Annuelle (+1 an)</option>
+                            <option value="Ponctuelle">Ponctuelle (Une seule fois)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Description / Instructions</label>
+                    <textarea id="tache-desc" rows="2" placeholder="Détails des opérations..." class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-primary focus:outline-none"></textarea>
+                </div>
+
+                <div class="pt-3 border-t border-slate-100 flex justify-end space-x-3">
+                    <button type="button" onclick="closeModal('modal-tache')" class="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl">Annuler</button>
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-brand-primary hover:bg-brand-dark rounded-xl shadow-sm">Créer la Tâche</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODALE 4 : VALIDER UNE INTERVENTION -->
+    <div id="modal-intervention" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-100">
+            <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+                <h3 class="text-lg font-bold text-slate-900"><i class="fa-solid fa-clipboard-check text-emerald-600 mr-2"></i>Valider l'Intervention</h3>
+                <button onclick="closeModal('modal-intervention')" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <form id="form-valider-intervention" onsubmit="handleConfirmIntervention(event)" class="space-y-4">
+                <input type="hidden" id="inter-tache-id">
+
+                <div>
+                    <p class="text-xs text-slate-500 mb-1">Tâche sélectionnée :</p>
+                    <p class="font-bold text-slate-900 text-sm" id="inter-tache-titre">Titre de la tâche</p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Résultat de l'intervention</label>
+                    <select id="inter-statut-resultat" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-primary focus:outline-none">
+                        <option value="Terminée">Réussie (Terminée & Recréer prochaine tâche)</option>
+                        <option value="Bloquée">Bloquée (Problème / Rupture de pièce)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Coût de l'intervention ($)</label>
+                    <input type="number" step="0.01" id="inter-cout" value="0.00" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-primary focus:outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Compte-rendu / Commentaire</label>
+                    <textarea id="inter-commentaire" required rows="3" placeholder="Description du travail effectué ou cause du blocage..." class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-primary focus:outline-none"></textarea>
+                </div>
+
+                <div class="pt-3 border-t border-slate-100 flex justify-end space-x-3">
+                    <button type="button" onclick="closeModal('modal-intervention')" class="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl">Annuler</button>
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-sm">Confirmer & Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC & API -->
+    <script>
+        const API_URL = "http://localhost:5000/api";
+        let isApiOnline = false;
+
+        let localEquipements = [];
+        let localResponsables = [];
+        let localTaches = [];
+        let localInterventions = [];
+        let localNotifications = [];
+        let activeFilter = 'tous';
+        let chartInstance = null;
+        let notifPollingInterval = null;
+
+        window.onload = function() {
+            checkApiConnection();
+            initChart();
+            // Rafraîchir les notifications toutes les 30s
+            notifPollingInterval = setInterval(() => {
+                if (isApiOnline) loadNotificationsFromApi();
+            }, 30000);
+        };
+
+        async function checkApiConnection() {
+            const badge = document.getElementById('api-status-badge');
+            const text = document.getElementById('api-status-text');
+            const dot = document.getElementById('api-status-dot');
+
+            // Rendre le badge visible
+            badge.classList.remove('hidden');
+            badge.classList.add('flex');
+
+            try {
+                const response = await fetch('http://localhost:5000/test-db');
+                if (response.ok) {
+                    isApiOnline = true;
+                    badge.className = "flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+                    dot.className = "w-2 h-2 rounded-full bg-emerald-400";
+                    text.innerText = "API Express connectée à PostgreSQL";
+                    await loadDataFromApi();
+                } else {
+                    throw new Error("API non OK");
+                }
+            } catch (err) {
+                isApiOnline = false;
+                badge.className = "flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20";
+                dot.className = "w-2 h-2 rounded-full bg-amber-400 animate-pulse";
+                text.innerText = "Mode Hors-Ligne";
+                renderAll();
+            }
+        }
+
+        async function loadDataFromApi() {
+            try {
+                const [resEq, resResp, resTaches, resInter, resNotif] = await Promise.all([
+                    fetch(`${API_URL}/equipements`),
+                    fetch(`${API_URL}/responsables`),
+                    fetch(`${API_URL}/taches`),
+                    fetch(`${API_URL}/interventions`),
+                    fetch(`${API_URL}/notifications`)
+                ]);
+
+                if (resEq.ok) localEquipements = await resEq.json();
+                if (resResp.ok) localResponsables = await resResp.json();
+                if (resTaches.ok) localTaches = await resTaches.json();
+                if (resInter.ok) localInterventions = await resInter.json();
+                if (resNotif.ok) localNotifications = await resNotif.json();
+
+                renderAll();
+            } catch (error) {
+                console.warn("Erreur chargement API", error);
+            }
+        }
+
+        async function loadNotificationsFromApi() {
+            try {
+                const res = await fetch(`${API_URL}/notifications`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.length !== localNotifications.length) {
+                        localNotifications = data;
+                        renderNotifications();
+                    }
+                }
+            } catch (err) {
+                console.warn("Erreur chargement notifs", err);
+            }
+        }
+
+        function refreshData() {
+            checkApiConnection();
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active-tab'));
+
+            document.getElementById(tabId).classList.remove('hidden');
+            document.getElementById(`btn-${tabId}`).classList.add('active-tab');
+
+            if (tabId === 'tab-dashboard') updateChart();
+            if (tabId === 'tab-notifications' && isApiOnline) loadNotificationsFromApi();
+        }
+
+        function renderAll() {
+            renderStats();
+            renderDashboardTable();
+            renderEquipementsCards();
+            renderResponsablesTable();
+            filterTaches(activeFilter);
+            renderInterventionsTable();
+            renderNotifications();
+            populateSelects();
+            updateChart();
+        }
+
+        function renderStats() {
+            document.getElementById('stat-equipements-count').innerText = localEquipements.length;
+            
+            const attenteCount = localTaches.filter(t => t.statut === 'En attente').length;
+            const encoursCount = localTaches.filter(t => t.statut === 'En cours').length;
+            const termineesCount = localTaches.filter(t => t.statut === 'Terminée').length;
+            const bloqueesCount = localTaches.filter(t => t.statut === 'Bloquée').length;
+
+            document.getElementById('stat-taches-attente').innerText = attenteCount;
+            document.getElementById('stat-taches-encours').innerText = encoursCount;
+            document.getElementById('stat-taches-terminees').innerText = termineesCount;
+            document.getElementById('stat-taches-bloquees').innerText = bloqueesCount;
+
+            document.getElementById('count-tous').innerText = localTaches.length;
+            document.getElementById('count-attente').innerText = attenteCount;
+            document.getElementById('count-encours').innerText = encoursCount;
+            document.getElementById('count-terminees').innerText = termineesCount;
+            document.getElementById('count-bloquees').innerText = bloqueesCount;
+        }
+
+        function renderDashboardTable() {
+            const tbody = document.getElementById('dashboard-echeances-body');
+            tbody.innerHTML = '';
+
+            const sliced = localTaches.slice(0, 4);
+            sliced.forEach(t => {
+                const dateClean = t.date_echeance ? new Date(t.date_echeance).toLocaleDateString('fr-FR') : 'N/A';
+                let badgeClass = "bg-blue-100 text-blue-800";
+                if(t.statut === 'En cours') badgeClass = "bg-amber-100 text-amber-800";
+                if(t.statut === 'Terminée') badgeClass = "bg-emerald-100 text-emerald-800";
+                if(t.statut === 'Bloquée') badgeClass = "bg-rose-100 text-rose-800";
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="py-3 font-medium text-slate-900">${t.titre_tache}</td>
+                        <td class="py-3 text-slate-500">${t.nom_equipement || 'Matériel #' + t.id_equipement}</td>
+                        <td class="py-3 text-slate-500">${dateClean}</td>
+                        <td class="py-3"><span class="px-2 py-1 text-xs rounded-full font-semibold ${badgeClass}">${t.statut}</span></td>
+                    </tr>
+                `;
+            });
+        }
+
+        function renderEquipementsCards() {
+            const container = document.getElementById('equipements-grid');
+            container.innerHTML = '';
+
+            localEquipements.forEach(eq => {
+                let statusBadge = "bg-emerald-100 text-emerald-700 border-emerald-200";
+                let icon = "fa-check-circle";
+                
+                if (eq.etat === 'En maintenance' || eq.etat === 'En attente de pièce') {
+                    statusBadge = "bg-amber-100 text-amber-700 border-amber-200";
+                    icon = "fa-screwdriver-wrench";
+                }
+
+                container.innerHTML += `
+                    <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition-shadow relative group">
+                        <div class="flex items-start justify-between">
+                            <div class="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center text-lg">
+                                <i class="${eq.categorie === 'Génératrice' ? 'fa-solid fa-bolt' : 'fa-solid fa-desktop'}"></i>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="px-2.5 py-1 rounded-full text-xs font-semibold border ${statusBadge} flex items-center gap-1">
+                                    <i class="fa-solid ${icon}"></i> ${eq.etat}
+                                </span>
+                                <button onclick="deleteEquipement(${eq.id_equipement})" title="Supprimer l'équipement" class="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition">
+                                    <i class="fa-solid fa-trash-can text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <h3 class="font-bold text-slate-900 text-base mt-4">${eq.nom_equipement}</h3>
+                        <p class="text-xs text-slate-500 mt-1"><i class="fa-solid fa-location-dot mr-1"></i>${eq.localisation}</p>
+                        <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
+                            <span>Catégorie: <strong>${eq.categorie}</strong></span>
+                            <span>ID: #${eq.id_equipement}</span>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function renderResponsablesTable() {
+            const tbody = document.getElementById('table-responsables');
+            tbody.innerHTML = '';
+
+            localResponsables.forEach(r => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50/50">
+                        <td class="p-4 font-medium text-slate-900">${r.nom_responsable}</td>
+                        <td class="p-4">${r.email}</td>
+                        <td class="p-4">${r.numero || 'N/A'}</td>
+                        <td class="p-4"><span class="px-2.5 py-1 rounded-full text-xs font-semibold ${r.role === 'Admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}">${r.role}</span></td>
+                        <td class="p-4 text-right">
+                            <button onclick="deleteResponsable(${r.id_responsable})" title="Supprimer le responsable" class="text-slate-400 hover:text-rose-600 p-2 rounded-lg hover:bg-rose-50 transition">
+                                <i class="fa-solid fa-trash-can text-sm"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function filterTaches(status) {
+            activeFilter = status;
+            document.querySelectorAll('.btn-filter-tache').forEach(btn => {
+                btn.className = "btn-filter-tache px-3 py-1.5 text-xs font-semibold rounded-lg bg-white text-slate-600 hover:bg-slate-100 border border-slate-200";
+            });
+
+            const activeBtn = document.querySelector(`[data-filter="${status}"]`);
+            if (activeBtn) activeBtn.className = "btn-filter-tache px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white";
+
+            let filtered = localTaches;
+            if (status !== 'tous') {
+                filtered = localTaches.filter(t => t.statut === status);
+            }
+            renderTachesTable(filtered);
+        }
+
+        function renderTachesTable(tachesList) {
+            const tbody = document.getElementById('taches-table-body');
+            tbody.innerHTML = '';
+
+            tachesList.forEach(t => {
+                let badgeStyle = "bg-blue-50 text-blue-700 border-blue-200";
+                if(t.statut === 'En cours') badgeStyle = "bg-amber-50 text-amber-700 border-amber-200 animate-pulse";
+                if(t.statut === 'Terminée') badgeStyle = "bg-emerald-50 text-emerald-700 border-emerald-200";
+                if(t.statut === 'Bloquée') badgeStyle = "bg-rose-50 text-rose-700 border-rose-200";
+
+                const dateClean = t.date_echeance ? new Date(t.date_echeance).toLocaleString('fr-FR') : 'N/A';
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50/80 transition-colors">
+                        <td class="p-4">
+                            <p class="font-bold text-slate-900">${t.titre_tache}</p>
+                            <p class="text-xs text-slate-400">${t.description_tache || ''}</p>
+                        </td>
+                        <td class="p-4"><span class="px-2 py-0.5 text-xs bg-slate-100 text-slate-600 rounded-md font-medium">${t.type_tache}</span></td>
+                        <td class="p-4 text-slate-700 font-medium">${t.nom_equipement || 'Équipement #' + t.id_equipement}</td>
+                        <td class="p-4 text-slate-600">${t.nom_responsable || 'Non assigné'}</td>
+                        <td class="p-4 text-slate-500 text-xs">${dateClean}</td>
+                        <td class="p-4 text-slate-500 text-xs">${t.frequence || 'Aucune'}</td>
+                        <td class="p-4"><span class="px-2.5 py-1 text-xs font-semibold rounded-full border ${badgeStyle}">${t.statut}</span></td>
+                        <td class="p-4 text-right space-x-2">
+                            ${(t.statut === 'En attente' || t.statut === 'En cours' || t.statut === 'Bloquée') ? `
+                                <button onclick="openInterventionModal(${t.id_tache})" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded-lg shadow-sm">
+                                    <i class="fa-solid fa-check mr-1"></i> Valider
+                                </button>
+                            ` : `<span class="text-xs text-slate-400 italic mr-2">Terminée</span>`}
+                            
+                            <button onclick="deleteTache(${t.id_tache})" title="Supprimer la tâche" class="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition">
+                                <i class="fa-solid fa-trash-can text-xs"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        // --- FONCTIONS DE SUPPRESSION ---
+        async function deleteEquipement(id) {
+            if (!confirm("Voulez-vous vraiment supprimer cet équipement ?")) return;
+            if (isApiOnline) {
+                try {
+                    await fetch(`${API_URL}/equipements/${id}`, { method: 'DELETE' });
+                    await loadDataFromApi();
+                } catch(err) { console.error(err); }
+            } else {
+                localEquipements = localEquipements.filter(e => e.id_equipement !== id);
+                renderAll();
+            }
+        }
+
+        async function deleteResponsable(id) {
+            if (!confirm("Voulez-vous vraiment supprimer ce responsable ?")) return;
+            if (isApiOnline) {
+                try {
+                    await fetch(`${API_URL}/responsables/${id}`, { method: 'DELETE' });
+                    await loadDataFromApi();
+                } catch(err) { console.error(err); }
+            } else {
+                localResponsables = localResponsables.filter(r => r.id_responsable !== id);
+                renderAll();
+            }
+        }
+
+        async function deleteTache(id) {
+            if (!confirm("Voulez-vous vraiment supprimer cette tâche ?")) return;
+            if (isApiOnline) {
+                try {
+                    await fetch(`${API_URL}/taches/${id}`, { method: 'DELETE' });
+                    await loadDataFromApi();
+                } catch(err) { console.error(err); }
+            } else {
+                localTaches = localTaches.filter(t => t.id_tache !== id);
+                renderAll();
+            }
+        }
+
+        function openInterventionModal(tacheId) {
+            const task = localTaches.find(t => t.id_tache === tacheId);
+            if (!task) return;
+
+            document.getElementById('inter-tache-id').value = task.id_tache;
+            document.getElementById('inter-tache-titre').innerText = `${task.titre_tache} (${task.nom_equipement || 'Matériel'})`;
+            document.getElementById('inter-commentaire').value = '';
+            document.getElementById('inter-cout').value = '0.00';
+            openModal('modal-intervention');
+        }
+
+        async function handleConfirmIntervention(e) {
+            e.preventDefault();
+            const tacheId = parseInt(document.getElementById('inter-tache-id').value);
+            const statutResultat = document.getElementById('inter-statut-resultat').value;
+            const cout = parseFloat(document.getElementById('inter-cout').value) || 0.00;
+            const commentaire = document.getElementById('inter-commentaire').value;
+
+            // Récupérer le responsable réel de la tâche
+            const tache = localTaches.find(t => t.id_tache === tacheId);
+            const respId = tache && tache.id_responsable ? tache.id_responsable : 2;
+
+            if (isApiOnline) {
+                try {
+                    const res = await fetch(`${API_URL}/interventions`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            id_tache: tacheId,
+                            id_responsable: respId,
+                            commentaire: commentaire,
+                            cout_intervention: cout,
+                            statut_resultat: statutResultat
+                        })
+                    });
+                    if (res.ok) {
+                        await loadDataFromApi();
+                    }
+                } catch(err) { console.error(err); }
+            } else {
+                const taskIndex = localTaches.findIndex(t => t.id_tache === tacheId);
+                if (taskIndex !== -1) {
+                    localTaches[taskIndex].statut = statutResultat;
+                    renderAll();
+                }
+            }
+
+            closeModal('modal-intervention');
+        }
+
+        function renderInterventionsTable() {
+            const tbody = document.getElementById('interventions-table-body');
+            tbody.innerHTML = '';
+
+            localInterventions.forEach(i => {
+                const dateClean = i.date_realisation ? new Date(i.date_realisation).toLocaleString('fr-FR') : 'N/A';
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50/80 transition-colors">
+                        <td class="p-4 text-xs font-medium text-slate-500">${dateClean}</td>
+                        <td class="p-4 font-bold text-slate-900">${i.titre_tache}</td>
+                        <td class="p-4 text-slate-700">${i.nom_responsable || 'Benoît Paul'}</td>
+                        <td class="p-4 text-emerald-600 font-bold">$${parseFloat(i.cout_intervention || 0).toFixed(2)}</td>
+                        <td class="p-4 text-xs text-slate-600 max-w-md">${i.commentaire}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        function renderNotifications() {
+            const list = document.getElementById('notifications-list');
+            const badge = document.getElementById('notif-badge-count');
+            list.innerHTML = '';
+
+            // Mettre à jour le badge avec le nombre réel
+            badge.innerText = localNotifications.length;
+            badge.style.display = localNotifications.length > 0 ? 'inline-block' : 'none';
+
+            if (localNotifications.length === 0) {
+                list.innerHTML = `
+                    <div class="text-center py-12 text-slate-400">
+                        <i class="fa-solid fa-bell-slash text-4xl mb-3"></i>
+                        <p class="text-sm">Aucune notification pour le moment.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            localNotifications.forEach(n => {
+                const dateClean = n.date_envoie ? new Date(n.date_envoie).toLocaleString('fr-FR') : '';
+                const msg = n.message || '';
+                const lowerMsg = msg.toLowerCase();
+                const isAlerte = lowerMsg.includes('alerte') || lowerMsg.includes('bloqu');
+
+                const bgClass = isAlerte ? 'bg-rose-50 border-rose-200' : 'bg-slate-50 border-slate-100';
+                const iconClass = isAlerte ? 'bg-rose-100 text-rose-600' : 'bg-brand-primary/10 text-brand-primary';
+                const iconFa = isAlerte ? 'fa-triangle-exclamation' : 'fa-bell';
+
+                list.innerHTML += `
+                    <div class="p-4 rounded-xl border ${bgClass} flex items-start space-x-3">
+                        <div class="p-2 ${iconClass} rounded-lg">
+                            <i class="fa-solid ${iconFa}"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-sm font-medium text-slate-800">${msg}</p>
+                            <span class="text-xs text-slate-400 mt-1 block">${dateClean}${n.titre_tache ? ' · ' + n.titre_tache : ''}</span>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        async function clearNotifications() {
+            if (isApiOnline) {
+                try {
+                    await fetch(`${API_URL}/notifications`, { method: 'DELETE' });
+                    localNotifications = [];
+                    renderNotifications();
+                } catch (err) { console.error(err); }
+            } else {
+                localNotifications = [];
+                renderNotifications();
+            }
+        }
+
+        function initChart() {
+            const ctx = document.getElementById('equipmentsChart').getContext('2d');
+            chartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Fonctionnel', 'En maintenance'],
+                    datasets: [{
+                        data: [1, 1],
+                        backgroundColor: ['#10b981', '#f59e0b'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { display: false } },
+                    cutout: '75%'
+                }
+            });
+        }
+
+        function updateChart() {
+            if (!chartInstance) return;
+            const fonctionnels = localEquipements.filter(e => e.etat === 'Fonctionnel').length;
+            const maintenance = localEquipements.filter(e => e.etat !== 'Fonctionnel').length;
+            chartInstance.data.datasets[0].data = [fonctionnels, maintenance];
+            chartInstance.update();
+        }
+
+        function populateSelects() {
+            const eqSelect = document.getElementById('tache-equipement-select');
+            eqSelect.innerHTML = '';
+            localEquipements.forEach(eq => {
+                eqSelect.innerHTML += `<option value="${eq.id_equipement}">${eq.nom_equipement}</option>`;
+            });
+
+            const respSelect = document.getElementById('tache-responsable');
+            respSelect.innerHTML = `<option value="">-- Sélectionner un responsable --</option>`;
+            localResponsables.forEach(r => {
+                respSelect.innerHTML += `<option value="${r.id_responsable}">${r.nom_responsable} (${r.role})</option>`;
+            });
+        }
+
+        function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+        async function handleAddEquipement(e) {
+            e.preventDefault();
+            const newEq = {
+                nom_equipement: document.getElementById('eq-nom').value,
+                categorie: document.getElementById('eq-categorie').value,
+                localisation: document.getElementById('eq-localisation').value,
+                etat: document.getElementById('eq-etat').value,
+                id_inst: 1
+            };
+
+            if (isApiOnline) {
+                try {
+                    const res = await fetch(`${API_URL}/equipements`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(newEq)
+                    });
+                    if (res.ok) await loadDataFromApi();
+                } catch(err) { console.error(err); }
+            } else {
+                newEq.id_equipement = localEquipements.length + 1;
+                localEquipements.push(newEq);
+                renderAll();
+            }
+
+            closeModal('modal-equipement');
+            document.getElementById('form-add-equipement').reset();
+        }
+
+        async function saveResponsable(e) {
+            e.preventDefault();
+            const data = {
+                nom_responsable: document.getElementById('resp-nom').value,
+                email: document.getElementById('resp-email').value,
+                numero: document.getElementById('resp-numero').value,
+                mot_de_passe: document.getElementById('resp-password').value,
+                role: document.getElementById('resp-role').value,
+                id_inst: 1
+            };
+
+            if (isApiOnline) {
+                try {
+                    const res = await fetch(`${API_URL}/responsables`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                    if (res.ok) {
+                        await loadDataFromApi();
+                    } else {
+                        const errData = await res.json();
+                        alert('Erreur : ' + errData.error);
+                        return;
+                    }
+                } catch(err) { console.error(err); }
+            } else {
+                data.id_responsable = localResponsables.length + 1;
+                localResponsables.push(data);
+                renderAll();
+            }
+
+            closeModal('modal-responsable');
+            document.getElementById('form-responsable').reset();
+        }
+
+        async function handleAddTache(e) {
+            e.preventDefault();
+            const eqId = parseInt(document.getElementById('tache-equipement-select').value);
+            const eqObj = localEquipements.find(eq => eq.id_equipement === eqId);
+            
+            const respId = parseInt(document.getElementById('tache-responsable').value) || null;
+            const respObj = localResponsables.find(r => r.id_responsable === respId);
+
+            const dateEcheance = document.getElementById('tache-echeance').value;
+
+            const now = new Date();
+            const echeanceDate = new Date(dateEcheance);
+            const statutInitial = (echeanceDate <= now) ? 'En cours' : 'En attente';
+
+            const newTache = {
+                titre_tache: document.getElementById('tache-titre').value,
+                type_tache: document.getElementById('tache-type').value,
+                description_tache: document.getElementById('tache-desc').value,
+                date_echeance: dateEcheance,
+                frequence: document.getElementById('tache-frequence').value,
+                statut: statutInitial,
+                id_equipement: eqId,
+                nom_equipement: eqObj ? eqObj.nom_equipement : "Matériel #" + eqId,
+                id_responsable: respId,
+                nom_responsable: respObj ? respObj.nom_responsable : "Non assigné"
+            };
+
+            if (isApiOnline) {
+                try {
+                    const res = await fetch(`${API_URL}/taches`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(newTache)
+                    });
+                    if (res.ok) await loadDataFromApi();
+                } catch(err) { console.error(err); }
+            } else {
+                newTache.id_tache = localTaches.length + 1;
+                localTaches.push(newTache);
+                renderAll();
+            }
+
+            closeModal('modal-tache');
+            document.getElementById('form-add-tache').reset();
+        }
+    </script>
+</body>
+</html>
