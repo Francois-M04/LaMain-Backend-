@@ -25,7 +25,6 @@ pool.connect((err, client, release) => {
     release();
 });
 
-// Route de test
 app.get('/test-db', async (req, res) => {
     try {
         const result = await pool.query('SELECT NOW()');
@@ -35,7 +34,7 @@ app.get('/test-db', async (req, res) => {
     }
 });
 
-// --- ROUTES ÉQUIPEMENTS ---
+// --- 1. ROUTES ÉQUIPEMENTS ---
 app.get('/api/equipements', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM Equipement ORDER BY id_equipement');
@@ -58,23 +57,61 @@ app.post('/api/equipements', async (req, res) => {
     }
 });
 
-// --- ROUTES RESPONSABLES ---
+// Route DELETE Équipement
+app.delete('/api/equipements/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        await pool.query('DELETE FROM Equipement WHERE id_equipement = $1', [id]);
+        res.json({ message: "Équipement supprimé avec succès !" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- 2. ROUTES RESPONSABLES ---
 app.get('/api/responsables', async (req, res) => {
     try {
-        const result = await pool.query('SELECT id_responsable, nom_responsable, email, role FROM Responsable');
+        const result = await pool.query('SELECT id_responsable, nom_responsable, numero, email, role FROM Responsable ORDER BY id_responsable');
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// --- ROUTES TÂCHES ---
+app.post('/api/responsables', async (req, res) => {
+    try {
+        const { nom_responsable, numero, email, mot_de_passe, role, id_inst } = req.body;
+        const result = await pool.query(
+            `INSERT INTO Responsable (nom_responsable, numero, email, mot_de_passe, role, id_inst) 
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+            [nom_responsable, numero, email, mot_de_passe, role || 'Responsable', id_inst || 1]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Erreur lors de l'ajout du responsable" });
+    }
+});
+
+// Route DELETE Responsable
+app.delete('/api/responsables/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        await pool.query('DELETE FROM Responsable WHERE id_responsable = $1', [id]);
+        res.json({ message: "Responsable supprimé avec succès !" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- 3. ROUTES TÂCHES ---
 app.get('/api/taches', async (req, res) => {
     try {
         const result = await pool.query(`
-            SELECT t.*, e.nom_equipement 
+            SELECT t.*, e.nom_equipement, r.nom_responsable 
             FROM Tache t
-            JOIN Equipement e ON t.id_equipement = e.id_equipement
+            LEFT JOIN Equipement e ON t.id_equipement = e.id_equipement
+            LEFT JOIN Responsable r ON t.id_responsable = r.id_responsable
             ORDER BY t.date_echeance ASC
         `);
         res.json(result.rows);
@@ -85,17 +122,16 @@ app.get('/api/taches', async (req, res) => {
 
 app.post('/api/taches', async (req, res) => {
     try {
-        const { titre_tache, type_tache, description_tache, date_echeance, frequence, id_equipement } = req.body;
+        const { titre_tache, type_tache, description_tache, date_echeance, frequence, id_equipement, id_responsable } = req.body;
         
-        // Déterminer le statut initial selon la date d'échéance par rapport à maintenant
         const maintenant = new Date();
         const echeance = new Date(date_echeance);
         const statutInitial = (echeance <= maintenant) ? 'En cours' : 'En attente';
 
         const result = await pool.query(
-            `INSERT INTO Tache (titre_tache, type_tache, description_tache, date_echeance, frequence, statut, id_equipement) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-            [titre_tache, type_tache, description_tache, date_echeance, frequence, statutInitial, id_equipement]
+            `INSERT INTO Tache (titre_tache, type_tache, description_tache, date_echeance, frequence, statut, id_equipement, id_responsable) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+            [titre_tache, type_tache, description_tache, date_echeance, frequence, statutInitial, id_equipement, id_responsable || null]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -103,68 +139,18 @@ app.post('/api/taches', async (req, res) => {
     }
 });
 
-// --- ROUTE POUR VALIDER UNE INTERVENTION ---
-app.post('/api/interventions', async (req, res) => {
-    const client = await pool.connect();
+// Route DELETE Tâche
+app.delete('/api/taches/:id', async (req, res) => {
     try {
-        await client.query('BEGIN');
-        const { id_tache, id_responsable, commentaire, cout_intervention, statut_resultat } = req.body;
-        const dateRealisation = new Date(); // Date de réalisation réelle (Aujourd'hui)
-
-        // 1. Enregistrer l'intervention
-        const interResult = await client.query(
-            `INSERT INTO Intervention (date_realisation, commentaire, cout_intervention, id_tache, id_responsable) 
-             VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-            [dateRealisation, commentaire, cout_intervention || 0.00, id_tache, id_responsable || 1]
-        );
-
-        // 2. Récupérer les données de la tâche initiale
-        const tacheRes = await client.query('SELECT * FROM Tache WHERE id_tache = $1', [id_tache]);
-        const tache = tacheRes.rows[0];
-
-        if (statut_resultat === 'Bloquée') {
-            await client.query("UPDATE Tache SET statut = 'Bloquée' WHERE id_tache = $1", [id_tache]);
-            await client.query("UPDATE Equipement SET etat = 'En attente de pièce' WHERE id_equipement = $1", [tache.id_equipement]);
-        } else {
-            // Statut de la tâche actuelle => Terminée
-            await client.query("UPDATE Tache SET statut = 'Terminée' WHERE id_tache = $1", [id_tache]);
-            await client.query("UPDATE Equipement SET etat = 'Fonctionnel' WHERE id_equipement = $1", [tache.id_equipement]);
-
-            // 3. Calcul de la nouvelle date d'échéance basée sur la date d'intervention + fréquence
-            if (tache.frequence && tache.frequence !== 'Ponctuelle') {
-                let nouvelleDate = new Date(dateRealisation);
-                let freq = tache.frequence.toLowerCase();
-                let nombre = 1;
-                let match = freq.match(/\d+/);
-                if (match) nombre = parseInt(match[0]);
-
-                if (freq.includes('jour')) nouvelleDate.setDate(nouvelleDate.getDate() + nombre);
-                else if (freq.includes('semaine')) nouvelleDate.setDate(nouvelleDate.getDate() + (nombre * 7));
-                else if (freq.includes('mois')) nouvelleDate.setMonth(nouvelleDate.getMonth() + nombre);
-                else if (freq.includes('an') || freq.includes('année')) nouvelleDate.setFullYear(nouvelleDate.getFullYear() + nombre);
-                else nouvelleDate.setDate(nouvelleDate.getDate() + 30); // Par défaut 30 jours
-
-                // Créer la nouvelle tâche au statut "En attente"
-                await client.query(
-                    `INSERT INTO Tache (titre_tache, type_tache, description_tache, date_echeance, frequence, statut, id_equipement)
-                     VALUES ($1, $2, $3, $4, $5, 'En attente', $6)`,
-                    [tache.titre_tache, tache.type_tache, tache.description_tache, nouvelleDate, tache.frequence, tache.id_equipement]
-                );
-            }
-        }
-
-        await client.query('COMMIT');
-        res.status(201).json({ message: "Intervention enregistrée et tâche récurrente recalculée avec succès !" });
+        const { id } = req.params;
+        await pool.query('DELETE FROM Tache WHERE id_tache = $1', [id]);
+        res.json({ message: "Tâche supprimée avec succès !" });
     } catch (err) {
-        await client.query('ROLLBACK');
-        console.error(err);
         res.status(500).json({ error: err.message });
-    } finally {
-        client.release();
     }
 });
 
-// --- ROUTE POUR LES INTERVENTIONS (HISTORIQUE) ---
+// --- 4. ROUTES INTERVENTIONS ---
 app.get('/api/interventions', async (req, res) => {
     try {
         const result = await pool.query(`
@@ -180,13 +166,64 @@ app.get('/api/interventions', async (req, res) => {
     }
 });
 
-// ==========================================
-// TÂCHES AUTOMATIQUES (CRON JOB)
-// Vérification régulière pour passer "En attente" -> "En cours" dès l'échéance
-// ==========================================
+app.post('/api/interventions', async (req, res) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const { id_tache, id_responsable, commentaire, cout_intervention, statut_resultat } = req.body;
+        const dateRealisation = new Date();
+
+        const respCheck = await client.query('SELECT id_responsable FROM Responsable LIMIT 1');
+        const validRespId = respCheck.rows.length > 0 ? respCheck.rows[0].id_responsable : 1;
+        const targetResponsable = id_responsable || validRespId;
+
+        await client.query(
+            `INSERT INTO Intervention (date_realisation, commentaire, cout_intervention, id_tache, id_responsable) 
+             VALUES ($1, $2, $3, $4, $5)`,
+            [dateRealisation, commentaire, cout_intervention || 0.00, id_tache, targetResponsable]
+        );
+
+        const tacheRes = await client.query('SELECT * FROM Tache WHERE id_tache = $1', [id_tache]);
+        const tache = tacheRes.rows[0];
+
+        if (statut_resultat === 'Bloquée') {
+            await client.query("UPDATE Tache SET statut = 'Bloquée' WHERE id_tache = $1", [id_tache]);
+            await client.query("UPDATE Equipement SET etat = 'En attente de pièce' WHERE id_equipement = $1", [tache.id_equipement]);
+        } else {
+            await client.query("UPDATE Tache SET statut = 'Terminée' WHERE id_tache = $1", [id_tache]);
+            await client.query("UPDATE Equipement SET etat = 'Fonctionnel' WHERE id_equipement = $1", [tache.id_equipement]);
+
+            if (tache.frequence && tache.frequence !== 'Ponctuelle') {
+                let nouvelleDate = new Date(dateRealisation);
+                let freq = tache.frequence.toLowerCase();
+
+                if (freq.includes('mensuelle')) nouvelleDate.setMonth(nouvelleDate.getMonth() + 1);
+                else if (freq.includes('trimestrielle')) nouvelleDate.setMonth(nouvelleDate.getMonth() + 3);
+                else if (freq.includes('semestrielle')) nouvelleDate.setMonth(nouvelleDate.getMonth() + 6);
+                else if (freq.includes('annuelle')) nouvelleDate.setFullYear(nouvelleDate.getFullYear() + 1);
+                else nouvelleDate.setDate(nouvelleDate.getDate() + 30);
+
+                await client.query(
+                    `INSERT INTO Tache (titre_tache, type_tache, description_tache, date_echeance, frequence, statut, id_equipement, id_responsable)
+                     VALUES ($1, $2, $3, $4, $5, 'En attente', $6, $7)`,
+                    [tache.titre_tache, tache.type_tache, tache.description_tache, nouvelleDate, tache.frequence, tache.id_equipement, tache.id_responsable]
+                );
+            }
+        }
+
+        await client.query('COMMIT');
+        res.status(201).json({ message: "Intervention enregistrée avec succès !" });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(err);
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
 cron.schedule('*/10 * * * * *', async () => {
     try {
-        // Déplacer de "En attente" à "En cours" si la date d'échéance est atteinte ou dépassée
         await pool.query(`
             UPDATE Tache 
             SET statut = 'En cours' 
@@ -194,7 +231,7 @@ cron.schedule('*/10 * * * * *', async () => {
             AND date_echeance <= NOW()
         `);
     } catch (err) {
-        console.error("Erreur lors de la mise à jour des statuts de tâches :", err);
+        console.error("Erreur Cron Job :", err);
     }
 });
 
