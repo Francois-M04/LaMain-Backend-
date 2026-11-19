@@ -3,3 +3,4 @@ pg
 cors - Middleware
 dotenv - pertmet d'acceder a env
 nodemailer
+bcrypt jsonwebtoken (Pour les authentifications)
