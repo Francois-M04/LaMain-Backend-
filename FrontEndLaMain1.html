@@ -48,6 +48,45 @@
 </head>
 <body class="h-full flex flex-col font-sans text-slate-800 antialiased">
 
+    <!-- ================= ÉCRAN DE CONNEXION ================= -->
+    <div id="login-screen" class="fixed inset-0 z-[100] bg-slate-900 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-8 shadow-2xl border border-slate-100">
+            <div class="text-center mb-6">
+                <div class="w-14 h-14 mx-auto bg-gradient-to-tr from-brand-primary to-brand-accent rounded-2xl flex items-center justify-center shadow-lg mb-3">
+                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                    </svg>
+                </div>
+                <h1 class="text-2xl font-bold text-slate-900">LA MAIN</h1>
+                <p class="text-sm text-slate-500 mt-1">Système de gestion préventive — ISTEAH</p>
+            </div>
+
+            <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Email</label>
+                    <input type="email" id="login-email" required placeholder="vous@isteah.ht"
+                           class="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-primary focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Mot de passe</label>
+                    <input type="password" id="login-password" required placeholder="••••••••"
+                           class="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-primary focus:outline-none">
+                </div>
+                <div id="login-error" class="hidden text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2"></div>
+                <button type="submit" id="login-submit"
+                        class="w-full py-2.5 bg-brand-primary hover:bg-brand-dark text-white text-sm font-semibold rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-right-to-bracket"></i>
+                    <span>Se connecter</span>
+                </button>
+            </form>
+
+            <p class="text-xs text-slate-400 text-center mt-6">
+                <i class="fa-solid fa-lock mr-1"></i>
+                Accès réservé aux responsables habilités.
+            </p>
+        </div>
+    </div>
+
     <!-- HEADER / NAVIGATION PRINCIPALE -->
     <header class="bg-slate-900 text-white shadow-lg sticky top-0 z-40">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -74,15 +113,19 @@
                         <span id="api-status-text">Vérification de l'API...</span>
                     </div> 
 
-                    <!-- USER INFO -->
+                    <!-- USER INFO (dynamique) -->
                     <div class="hidden sm:flex items-center space-x-3 border-l border-slate-800 pl-4">
-                        <div class="w-8 h-8 rounded-full bg-brand-primary flex items-center justify-center text-xs font-bold text-white">
-                            WA
+                        <div id="user-avatar" class="w-8 h-8 rounded-full bg-brand-primary flex items-center justify-center text-xs font-bold text-white">
+                            --
                         </div>
                         <div class="text-xs">
-                            <p class="font-medium text-slate-200">Wesley Alexis</p>
-                            <p class="text-slate-400">Administrateur (ISTEAH)</p>
+                            <p id="user-name" class="font-medium text-slate-200">—</p>
+                            <p id="user-role" class="text-slate-400">—</p>
                         </div>
+                        <button onclick="handleLogout()" title="Se déconnecter"
+                                class="ml-2 text-slate-400 hover:text-rose-400 p-2 rounded-lg hover:bg-slate-800 transition">
+                            <i class="fa-solid fa-right-from-bracket"></i>
+                        </button>
                     </div>
                 </div>
 
@@ -605,21 +648,150 @@
         let chartInstance = null;
         let notifPollingInterval = null;
 
-        window.onload = function() {
+        // ✅ Auth state
+        let currentUser = null;
+        let authToken = localStorage.getItem('lamain_token') || null;
+
+        // ============================================================
+        // HELPER : fetch avec Authorization
+        // ============================================================
+        async function apiFetch(url, options = {}) {
+            const headers = {
+                'Content-Type': 'application/json',
+                ...(options.headers || {})
+            };
+            if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+
+            const res = await fetch(url, { ...options, headers });
+
+            // Ne déconnecte QUE si 401 sur une route protégée (pas /login)
+            if (res.status === 401 && !url.includes('/auth/login')) {
+                handleLogout(true);
+                throw new Error('Session expirée');
+            }
+            return res;
+        }
+
+        // ============================================================
+        // DÉMARRAGE — ne déconnecte QUE sur un vrai 401
+        // ============================================================
+        window.onload = async function() {
+            if (!authToken) {
+                showLoginScreen();
+                return;
+            }
+            try {
+                const res = await fetch(`${API_URL}/auth/me`, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (res.status === 401) {
+                    // Token réellement invalide ou expiré → déconnexion
+                    handleLogout(true);
+                    return;
+                }
+
+                if (!res.ok) {
+                    // Serveur down / erreur 500 → on ne déconnecte pas
+                    throw new Error(`Erreur serveur (${res.status})`);
+                }
+
+                const data = await res.json();
+                currentUser = data.user;
+                hideLoginScreen();
+                bootstrapApp();
+            } catch (err) {
+                console.warn('Vérification session impossible :', err.message);
+                // Erreur réseau / serveur : on garde le token et on laisse l'utilisateur
+                // réessayer, mais on affiche l'écran de login par sécurité.
+                showLoginScreen();
+            }
+        };
+
+        function bootstrapApp() {
+            document.getElementById('user-name').innerText = currentUser.nom_responsable || 'Utilisateur';
+            document.getElementById('user-role').innerText = currentUser.role || '';
+            document.getElementById('user-avatar').innerText = (currentUser.nom_responsable || 'U')
+                .split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+
             checkApiConnection();
             initChart();
-            // Rafraîchir les notifications toutes les 30s
             notifPollingInterval = setInterval(() => {
                 if (isApiOnline) loadNotificationsFromApi();
             }, 30000);
-        };
+        }
 
+        function showLoginScreen() {
+            document.getElementById('login-screen').classList.remove('hidden');
+        }
+        function hideLoginScreen() {
+            document.getElementById('login-screen').classList.add('hidden');
+        }
+
+        // ============================================================
+        // LOGIN / LOGOUT
+        // ============================================================
+        async function handleLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value.trim();
+            const password = document.getElementById('login-password').value;
+            const errorBox = document.getElementById('login-error');
+            const submitBtn = document.getElementById('login-submit');
+
+            errorBox.classList.add('hidden');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Connexion...</span>';
+
+            try {
+                const res = await fetch(`${API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, mot_de_passe: password })
+                });
+
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Connexion impossible.');
+
+                authToken = data.token;
+                currentUser = data.user;
+                localStorage.setItem('lamain_token', authToken);
+
+                hideLoginScreen();
+                document.getElementById('login-password').value = '';
+                bootstrapApp();
+            } catch (err) {
+                errorBox.innerText = err.message;
+                errorBox.classList.remove('hidden');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i><span>Se connecter</span>';
+            }
+        }
+
+        function handleLogout(silent = false) {
+            authToken = null;
+            currentUser = null;
+            localStorage.removeItem('lamain_token');
+            if (notifPollingInterval) clearInterval(notifPollingInterval);
+
+            if (!silent) {
+                document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+                document.getElementById('tab-dashboard').classList.remove('hidden');
+            }
+            showLoginScreen();
+        }
+
+        // ============================================================
+        // API CONNECTION
+        // ============================================================
         async function checkApiConnection() {
             const badge = document.getElementById('api-status-badge');
             const text = document.getElementById('api-status-text');
             const dot = document.getElementById('api-status-dot');
 
-            // Rendre le badge visible
             badge.classList.remove('hidden');
             badge.classList.add('flex');
 
@@ -629,7 +801,7 @@
                     isApiOnline = true;
                     badge.className = "flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
                     dot.className = "w-2 h-2 rounded-full bg-emerald-400";
-                    text.innerText = "API Express connectée à PostgreSQL";
+                    text.innerText = "";
                     await loadDataFromApi();
                 } else {
                     throw new Error("API non OK");
@@ -646,11 +818,11 @@
         async function loadDataFromApi() {
             try {
                 const [resEq, resResp, resTaches, resInter, resNotif] = await Promise.all([
-                    fetch(`${API_URL}/equipements`),
-                    fetch(`${API_URL}/responsables`),
-                    fetch(`${API_URL}/taches`),
-                    fetch(`${API_URL}/interventions`),
-                    fetch(`${API_URL}/notifications`)
+                    apiFetch(`${API_URL}/equipements`),
+                    apiFetch(`${API_URL}/responsables`),
+                    apiFetch(`${API_URL}/taches`),
+                    apiFetch(`${API_URL}/interventions`),
+                    apiFetch(`${API_URL}/notifications`)
                 ]);
 
                 if (resEq.ok) localEquipements = await resEq.json();
@@ -667,7 +839,7 @@
 
         async function loadNotificationsFromApi() {
             try {
-                const res = await fetch(`${API_URL}/notifications`);
+                const res = await apiFetch(`${API_URL}/notifications`);
                 if (res.ok) {
                     const data = await res.json();
                     if (data.length !== localNotifications.length) {
@@ -871,7 +1043,7 @@
             if (!confirm("Voulez-vous vraiment supprimer cet équipement ?")) return;
             if (isApiOnline) {
                 try {
-                    await fetch(`${API_URL}/equipements/${id}`, { method: 'DELETE' });
+                    await apiFetch(`${API_URL}/equipements/${id}`, { method: 'DELETE' });
                     await loadDataFromApi();
                 } catch(err) { console.error(err); }
             } else {
@@ -884,7 +1056,12 @@
             if (!confirm("Voulez-vous vraiment supprimer ce responsable ?")) return;
             if (isApiOnline) {
                 try {
-                    await fetch(`${API_URL}/responsables/${id}`, { method: 'DELETE' });
+                    const res = await apiFetch(`${API_URL}/responsables/${id}`, { method: 'DELETE' });
+                    if (!res.ok) {
+                        const data = await res.json();
+                        alert(data.error || 'Suppression impossible.');
+                        return;
+                    }
                     await loadDataFromApi();
                 } catch(err) { console.error(err); }
             } else {
@@ -897,7 +1074,7 @@
             if (!confirm("Voulez-vous vraiment supprimer cette tâche ?")) return;
             if (isApiOnline) {
                 try {
-                    await fetch(`${API_URL}/taches/${id}`, { method: 'DELETE' });
+                    await apiFetch(`${API_URL}/taches/${id}`, { method: 'DELETE' });
                     await loadDataFromApi();
                 } catch(err) { console.error(err); }
             } else {
@@ -924,18 +1101,12 @@
             const cout = parseFloat(document.getElementById('inter-cout').value) || 0.00;
             const commentaire = document.getElementById('inter-commentaire').value;
 
-            // Récupérer le responsable réel de la tâche
-            const tache = localTaches.find(t => t.id_tache === tacheId);
-            const respId = tache && tache.id_responsable ? tache.id_responsable : 2;
-
             if (isApiOnline) {
                 try {
-                    const res = await fetch(`${API_URL}/interventions`, {
+                    const res = await apiFetch(`${API_URL}/interventions`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             id_tache: tacheId,
-                            id_responsable: respId,
                             commentaire: commentaire,
                             cout_intervention: cout,
                             statut_resultat: statutResultat
@@ -979,7 +1150,6 @@
             const badge = document.getElementById('notif-badge-count');
             list.innerHTML = '';
 
-            // Mettre à jour le badge avec le nombre réel
             badge.innerText = localNotifications.length;
             badge.style.display = localNotifications.length > 0 ? 'inline-block' : 'none';
 
@@ -1020,7 +1190,7 @@
         async function clearNotifications() {
             if (isApiOnline) {
                 try {
-                    await fetch(`${API_URL}/notifications`, { method: 'DELETE' });
+                    await apiFetch(`${API_URL}/notifications`, { method: 'DELETE' });
                     localNotifications = [];
                     renderNotifications();
                 } catch (err) { console.error(err); }
@@ -1088,9 +1258,8 @@
 
             if (isApiOnline) {
                 try {
-                    const res = await fetch(`${API_URL}/equipements`, {
+                    const res = await apiFetch(`${API_URL}/equipements`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(newEq)
                     });
                     if (res.ok) await loadDataFromApi();
@@ -1118,16 +1287,15 @@
 
             if (isApiOnline) {
                 try {
-                    const res = await fetch(`${API_URL}/responsables`, {
+                    const res = await apiFetch(`${API_URL}/responsables`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(data)
                     });
                     if (res.ok) {
                         await loadDataFromApi();
                     } else {
                         const errData = await res.json();
-                        alert('Erreur : ' + errData.error);
+                        alert('Erreur : ' + (errData.error || 'Inconnue'));
                         return;
                     }
                 } catch(err) { console.error(err); }
@@ -1170,9 +1338,8 @@
 
             if (isApiOnline) {
                 try {
-                    const res = await fetch(`${API_URL}/taches`, {
+                    const res = await apiFetch(`${API_URL}/taches`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(newTache)
                     });
                     if (res.ok) await loadDataFromApi();
